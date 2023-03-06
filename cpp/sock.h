@@ -4,26 +4,38 @@
 
 #include <vector>
 #include <tuple>
-#include <conio.h>
 #include <iostream>
 #include <sstream>
 #include <stdio.h>
 
 #ifdef __unix__
+#include <string.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #define sleep_msec(n) usleep(n * 1e+3)
-
+#define SET_SOCKADDR_IPV4(addr, value)  (addr).sin_addr.s_addr = (value)
+#define SOCKLEN socklen_t
+#define SOCK int
 #else
+#include <conio.h>
 #include <winsock2.h>
 #include <WS2tcpip.h>
 #pragma comment(lib, "ws2_32.lib")
 #define sleep_msec(n) Sleep(n)
+#define SET_SOCKADDR_IPV4(addr, value)  (addr).sin_addr.S_un.S_addr = (value)
+#define SOCKLEN int
+#define SOCK SOCKET
+#endif
 
 class TcpSocket final
 {
 private:
 	bool _closed = false;
-	SOCKET _sock;
-	TcpSocket(SOCKET sock)
+	SOCK _sock;
+	TcpSocket(const int& sock)
 	{
 		_sock = sock;
 	}
@@ -31,50 +43,56 @@ private:
 public:
 	std::string new_line = "\n";
 
-	void close()
+	~TcpSocket()
 	{
 		if (!_closed)
 		{
 			_closed = true;
+#ifdef __unix__
+			close(_sock);
+#else
 			closesocket(_sock);
 			WSACleanup();
+#endif
 		}
 	}
 
-	~TcpSocket() { close(); }
-
 	static TcpSocket create_server(const int& port)
 	{
+#ifndef __unix__
 		WSADATA wsaData;
 		int e = WSAStartup(MAKEWORD(2, 0), &wsaData);
 		if (e != 0) throw "failed to initialize Winsock DLL";
+#endif
+		SOCK sock0, sock;
 		struct sockaddr_in addr;
-		addr.sin_family = AF_INET;
-		addr.sin_port = htons(port);
-		addr.sin_addr.S_un.S_addr = INADDR_ANY;
-		SOCKET sock0 = socket(AF_INET, SOCK_STREAM, 0);
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
+		SET_SOCKADDR_IPV4(addr, INADDR_ANY);
+		SOCKLEN len = sizeof(struct sockaddr_in);
+		sock0 = socket(AF_INET, SOCK_STREAM, 0);
 		bind(sock0, (struct sockaddr*)&addr, sizeof(addr));
 		listen(sock0, 5);
 		struct sockaddr_in client;
-		int len = sizeof(client);
-		SOCKET sock = accept(sock0, (struct sockaddr*)&client, &len);
+		sock = accept(sock0, (struct sockaddr*)&client, &len);
 		return TcpSocket(sock);
 	}
 
 	static TcpSocket create_client(const int& port, const std::string& ip_address = "127.0.0.1")
 	{
+#ifndef __unix__
 		WSADATA wsaData;
 		int e = WSAStartup(MAKEWORD(2, 0), &wsaData);
 		if (e != 0) throw "failed to initialize Winsock DLL";
-		struct sockaddr_in server;
-		server.sin_family = AF_INET;
-		server.sin_port = htons(port);
-		inet_pton(AF_INET, ip_address.c_str(), &server.sin_addr.s_addr);
-		SOCKET sock = socket(AF_INET, SOCK_STREAM, 0);
-		connect(sock, (struct sockaddr*)&server, sizeof(server));
+#endif
+		SOCK sock = socket(AF_INET, SOCK_STREAM, 0);
+		struct sockaddr_in addr;
+		addr.sin_family = AF_INET;
+		addr.sin_port = htons(port);
+		inet_pton(AF_INET, ip_address.c_str(), &addr.sin_addr.s_addr);
+		connect(sock, (struct sockaddr*)&addr, sizeof(addr));
 		return TcpSocket(sock);
 	}
-
 
 	bool try_write(const char* buf, const int& len) const
 	{
@@ -139,29 +157,33 @@ class UdpSocket final
 {
 private:
 	bool _closed = false;
-	SOCKET _sock;
+	SOCK _sock;
 	std::vector<struct sockaddr_in> _addr_out;
 
 public:
 	std::string new_line = "\n";
 
-	void close()
+	~UdpSocket()
 	{
 		if (!_closed)
 		{
 			_closed = true;
+#ifdef __unix__
+			close(_sock);
+#else
 			closesocket(_sock);
 			WSACleanup();
+#endif
 		}
 	}
 
-	~UdpSocket() { close(); }
-
 	UdpSocket()
 	{
+#ifndef __unix__
 		WSADATA wsaData;
 		int e = WSAStartup(MAKEWORD(2, 0), &wsaData);
 		if (e != 0) throw "failed to initialize Winsock DLL";
+#endif
 		_sock = socket(AF_INET, SOCK_DGRAM, 0);
 	}
 
@@ -170,7 +192,7 @@ public:
 		struct sockaddr_in addr_in;
 		addr_in.sin_family = AF_INET;
 		addr_in.sin_port = htons(port);
-		addr_in.sin_addr.S_un.S_addr = INADDR_ANY;
+		SET_SOCKADDR_IPV4(addr_in, INADDR_ANY);
 		bind(_sock, (struct sockaddr*)&addr_in, sizeof(addr_in));
 	}
 
@@ -196,10 +218,10 @@ public:
 			struct sockaddr_in ad;
 			ad.sin_family = AF_INET;
 			ad.sin_port = htons(port);
-			ad.sin_addr.S_un.S_addr = inet_addr(send_addr.c_str());
+			SET_SOCKADDR_IPV4(ad, inet_addr(send_addr.c_str()));
 			if (send_addr == "255.255.255.255")
 			{
-				BOOL yes = 1;
+				int yes = 1;
 				setsockopt(_sock, SOL_SOCKET, SO_BROADCAST, (char*)&yes, sizeof(yes));
 			}
 			_addr_out.push_back(ad);
@@ -208,6 +230,8 @@ public:
 
 	bool try_write(const char* buf, const int& len) const
 	{
+		if (_addr_out.size() < 1)
+			throw "no target is defined.";
 		for (auto addr : _addr_out)
 		{
 			if (sendto(_sock, buf, len, 0, (struct sockaddr*)&addr, sizeof(addr)) != len) return false;
@@ -217,6 +241,8 @@ public:
 
 	bool try_write_line(const std::string& str) const
 	{
+		if (_addr_out.size() < 1)
+			throw "no target is defined.";
 		for (auto addr : _addr_out)
 		{
 			int i = sendto(_sock, str.c_str(), strlen(str.c_str()), 0, (struct sockaddr*)&addr, sizeof(addr));
@@ -287,6 +313,5 @@ public:
 	}
 
 };
-#endif
 
 #endif
