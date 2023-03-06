@@ -1,3 +1,4 @@
+import time
 from sock import *
 
 if __name__ == '__main__':
@@ -6,5 +7,6 @@ if __name__ == '__main__':
   # sock = UdpSocket().set_listening_port(3000).set_target_ports(3001)
   while True:
     msg = "Hello"
-    # sock.write_line(msg)
-    print(sock.read_line())
+    sock.write_line(msg)
+    # print(sock.read_line())
+    time.sleep(1)

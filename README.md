@@ -5,15 +5,15 @@
 #### How to Run in Gitpod Terminal
 * Python
 ```
-cd /workspace/mmap-template/py && python main.py
+cd /workspace/socket-template/py && python main.py
 ```
 * C++ 
 ```
-cd /workspace/mmap-template/cpp && ./main
+cd /workspace/socket-template/cpp && ./main
 ```
 * C#
 ```
-cd /workspace/mmap-template/cs/bin/Debug/net7.0 && ./cs
+cd /workspace/socket-template/cs/bin/Debug/net7.0 && ./cs
 ```
 
 * パッと書ける範囲で，外部ライブラリに頼らない各言語のソケットプログラムテンプレートを作ってみました。

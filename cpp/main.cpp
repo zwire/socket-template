@@ -10,7 +10,7 @@ int main()
 	while (true)
 	{
 		std::string msg = "Hello";
-		sock.try_write_line(msg);
+		// sock.try_write_line(msg);
 		if (sock.try_read_line(msg))
 		{
 			std::cout << msg << std::endl;
