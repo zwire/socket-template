@@ -1,3 +1,43 @@
+#include <unistd.h>
+#include <sys/socket.h>
+#include "sock.h"
+
+SocketBase::SocketBase(int32_t sock)
+  : _closed(false), _sock(sock) {}
+
+auto SocketBase::terminate() -> void {
+  if (_closed) return;
+  _closed = true;
+  close(_sock);
+}
+
+auto SocketBase::read(const int& capacity) const -> std::vector<char> {
+  std::vector<char> v(capacity);
+  int ret = recv(_sock, v.data(), capacity, 0);
+  if (ret < 1) {
+    std::ostringstream ss;
+    ss << "failed to recv operation. error code: " << errno << ".";
+    throw std::runtime_error(ss.str());
+  }
+  v.resize(ret);
+  return v;
+}
+
+auto SocketBase::read_exactly(
+  char* data, const uint32_t& size) const -> void {
+  auto completed = 0;
+  while (completed < size) {
+    auto ret = recv(_sock, data + completed, size - completed, 0);
+    if (ret < 1) {
+      std::ostringstream ss;
+      ss << "failed to recv operation. error code: " << errno << ".";
+      throw std::runtime_error(ss.str());
+    }
+    completed += ret;
+  }
+}
+
+
 // #include <string.h>
 // #include <unistd.h>
 // #include <sys/types.h>
@@ -11,86 +51,6 @@
 // #define SOCKLEN socklen_t
 // #define SOCK int
 
-
-// class TcpSocket final
-// {
-// private:
-// 	bool _closed = false;
-// 	SOCK _sock;
-// 	TcpSocket(const int& sock)
-// 	{
-// 		_sock = sock;
-// 	}
-
-// public:
-// 	std::string new_line = "\n";
-
-// 	~TcpSocket()
-// 	{
-// 		if (!_closed)
-// 		{
-// 			_closed = true;
-// #ifdef __unix__
-// 			close(_sock);
-// #else
-// 			closesocket(_sock);
-// 			WSACleanup();
-// #endif
-// 		}
-// 	}
-
-// 	static TcpSocket create_server(const int& port)
-// 	{
-// #ifndef __unix__
-// 		WSADATA wsaData;
-// 		int e = WSAStartup(MAKEWORD(2, 0), &wsaData);
-// 		if (e != 0) throw "failed to initialize Winsock DLL";
-// #endif
-// 		SOCK sock0, sock;
-// 		struct sockaddr_in addr;
-//     addr.sin_family = AF_INET;
-//     addr.sin_port = htons(port);
-// 		SET_SOCKADDR_IPV4(addr, INADDR_ANY);
-// 		SOCKLEN len = sizeof(struct sockaddr_in);
-// 		sock0 = socket(AF_INET, SOCK_STREAM, 0);
-// 		bind(sock0, (struct sockaddr*)&addr, sizeof(addr));
-// 		listen(sock0, 5);
-// 		struct sockaddr_in client;
-// 		sock = accept(sock0, (struct sockaddr*)&client, &len);
-// 		return TcpSocket(sock);
-// 	}
-
-// 	static TcpSocket create_client(const int& port, const std::string& ip_address = "127.0.0.1")
-// 	{
-// #ifndef __unix__
-// 		WSADATA wsaData;
-// 		int e = WSAStartup(MAKEWORD(2, 0), &wsaData);
-// 		if (e != 0) throw "failed to initialize Winsock DLL";
-// #endif
-// 		SOCK sock = socket(AF_INET, SOCK_STREAM, 0);
-// 		struct sockaddr_in addr;
-// 		addr.sin_family = AF_INET;
-// 		addr.sin_port = htons(port);
-// 		inet_pton(AF_INET, ip_address.c_str(), &addr.sin_addr.s_addr);
-// 		connect(sock, (struct sockaddr*)&addr, sizeof(addr));
-// 		return TcpSocket(sock);
-// 	}
-
-// 	bool try_write(const char* buf, const int& len) const
-// 	{
-// 		return send(_sock, buf, len, 0) == len;
-// 	}
-
-// 	bool try_write_line(const std::string& str) const
-// 	{
-// 		int i = send(_sock, str.c_str(), strlen(str.c_str()), 0);
-// 		if (i == strlen(str.c_str()))
-// 		{
-// 			const char* ln = new_line.c_str();
-// 			return send(_sock, ln, strlen(ln), 0) == 1;
-// 		}
-// 		return false;
-// 	}
 
 // 	bool try_read(char* buf, const int& size) const
 // 	{

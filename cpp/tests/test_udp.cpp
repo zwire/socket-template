@@ -20,8 +20,8 @@ class Udp : public testing::Test {
   }
 
   void TearDown() override {
-    sock0->close();
-    sock1->close();
+    sock0->terminate();
+    sock1->terminate();
   }
 };
 

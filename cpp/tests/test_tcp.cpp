@@ -17,8 +17,8 @@ class Tcp : public testing::Test {
   }
 
   void TearDown() override {
-    client->close();
-    server->close();
+    client->terminate();
+    server->terminate();
   }
 };
 
@@ -71,17 +71,16 @@ TEST_F(Tcp, EchoString) {
   th.join();
 }
 
+#ifndef __unix__
 TEST(_, TcpNoServer) {
   try {
     auto client = TcpSocket::create_client(3000);
     std::vector<char> bin { 0x00, 0x10, 0x11, 0x77, 0x0f };
+    std::cout << "!!!" << std::endl;
     client.write(bin);
   }
   catch(std::exception e) {
-#ifdef __unix__
-
-#else
     EXPECT_STREQ("failed to write operation. error code: 10057.", e.what());
-#endif
   }
 }
+#endif

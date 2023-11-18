@@ -8,14 +8,14 @@
 #include <stdexcept>
 
 #ifdef __unix__
-
+  #include <netinet/in.h>
 #else
   #include <WS2tcpip.h>
 #endif
 
 class SocketBase {
  public:
-  virtual auto close() -> void;
+  virtual auto terminate() -> void;
   virtual auto write(const std::vector<char>& data) const -> void = 0;
   virtual auto read(const int& capacity = 1024) const -> std::vector<char>;
   virtual auto read_exactly(char* data, const uint32_t& size) const ->void;

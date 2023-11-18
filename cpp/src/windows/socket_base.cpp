@@ -3,7 +3,7 @@
 SocketBase::SocketBase(int32_t sock)
   : _closed(false), _sock(sock) {}
 
-auto SocketBase::close() -> void {
+auto SocketBase::terminate() -> void {
   if (_closed) return;
   _closed = true;
   closesocket(_sock);
